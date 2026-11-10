@@ -128,7 +128,12 @@ class DialogueEngine:
             if focused_object.type == "order":
                 slots_command.slots = {"order_number": focused_object.id}
             if focused_object.type == "course":
-                slots_command.slots = {"course_id": focused_object.id}
+                # 同时兼容 course_id（对象 ID）与 course_name（对象标题）两种槽位名，
+                # 因为不同流程的 collect 步骤声明的槽位名不一致，一并写入避免漏填
+                slots_command.slots = {
+                    "course_id": focused_object.id,
+                    "course_name": focused_object.title or focused_object.id,
+                }
             return await self.task_handler.handle([slots_command], state, user_message)
         # 2.2 不能填槽：走澄清
         return await self.clarify_responder.respond(
@@ -150,6 +155,7 @@ class DialogueEngine:
         focused_object = state.shared_state.focused_object
         if step.slot_name == "order_number" and focused_object.type == "order":
             return True
-        if step.slot_name == "course_id" and focused_object.type == "course":
+        # 课程卡片可填充 course_id 或 course_name 两种槽位名
+        if focused_object.type == "course" and step.slot_name in ("course_id", "course_name"):
             return True
         return False

@@ -24,8 +24,7 @@ class KnowledgeIntent:
 
 # 法硕培训场景的知识意图配置
 # 说明：每个意图关联独立的 provider_id，避免多个意图共用一个 provider 导致答非所问。
-#   faq.refund_policy  / faq.exam_policy / faq.class_arrangement 由 FAQProvider 按关键词检索；
-#   rag.default 作为兜底检索，只在 FAQ 未命中时返回。
+#   api.schedule / api.price / api.teacher / api.exam 分别查询班次、价格、老师、考试安排。
 KNOWLEDGE_INTENTS: dict[str, KnowledgeIntent] = {
     "course_info": KnowledgeIntent(
         id="course_info",
@@ -39,6 +38,21 @@ KNOWLEDGE_INTENTS: dict[str, KnowledgeIntent] = {
         provider_ids=["api.order"],
         requires_object="order",
     ),
+    "class_schedule": KnowledgeIntent(
+        id="class_schedule",
+        description="班次安排咨询（春秋季班次、上课时间、授课老师、线上线下、地区、线下班）",
+        provider_ids=["api.schedule"],
+    ),
+    "course_price": KnowledgeIntent(
+        id="course_price",
+        description="课程价格咨询（专硕/学硕、线上/线下价位）",
+        provider_ids=["api.price"],
+    ),
+    "exam_schedule": KnowledgeIntent(
+        id="exam_schedule",
+        description="考试安排咨询（月考、模拟考、模考时间）",
+        provider_ids=["api.exam"],
+    ),
     "refund_policy": KnowledgeIntent(
         id="refund_policy",
         description="退费政策咨询",
@@ -49,14 +63,9 @@ KNOWLEDGE_INTENTS: dict[str, KnowledgeIntent] = {
         description="考试报名与招生政策咨询",
         provider_ids=["faq.exam_policy", "rag.default"],
     ),
-    "class_arrangement": KnowledgeIntent(
-        id="class_arrangement",
-        description="班次与上课安排咨询",
-        provider_ids=["faq.class_arrangement", "rag.default"],
-    ),
     "general_course_info": KnowledgeIntent(
         id="general_course_info",
-        description="法硕培训通用信息咨询",
+        description="法硕培训通用信息咨询（试听、讲义、答疑、服务等）",
         provider_ids=["faq.general", "rag.default"],
     ),
 }

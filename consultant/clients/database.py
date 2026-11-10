@@ -23,6 +23,10 @@ async def create_tables():
     """首次启动时自动创建数据表"""
     from consultant.models.base import Base
     from consultant.models.dialogue_state_record import DialogueStateRecord  # noqa: F401 确保模型被注册
+    from consultant.models.business import (  # noqa: F401 确保业务表模型被注册
+        Course, Teacher, ClassSchedule, CoursePrice, OfflineLocation, ExamSchedule,
+        Order, OrderItem,
+    )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

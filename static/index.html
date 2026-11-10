@@ -34,8 +34,15 @@
   .card .title { font-weight: 600; }
   .card .id { color: #888; font-size: 12px; }
 
-  .toolbar { padding: 8px 16px; border-top: 1px solid #eee; display: flex; gap: 8px; }
-  .toolbar .card { cursor: pointer; }
+  .toolbar { padding: 8px 16px 10px; border-top: 1px solid #eee; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .tab { padding: 4px 14px; border: 1px solid #ddd; border-radius: 14px; background: #fff; color: #666;
+    cursor: pointer; font-size: 12px; }
+  .tab.active { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
+  .cards { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; }
+  .cards::-webkit-scrollbar { height: 6px; }
+  .cards::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+  .cards .card { flex: 0 0 auto; }
 
   .input-bar { display: flex; padding: 12px 16px; border-top: 1px solid #eee; gap: 8px; }
   .input-bar input { flex: 1; padding: 10px 14px; border: 1px solid #ddd; border-radius: 20px; font-size: 14px; outline: none; }
@@ -60,12 +67,11 @@
   <div class="chat" id="chat"></div>
 
   <div class="toolbar">
-    <span class="card" onclick="sendObject('course','C001','民商法全程班')">
-      <span class="tag">课程</span><div class="title">民商法全程班</div><div class="id">C001</div>
-    </span>
-    <span class="card" onclick="sendObject('order','A1001','法硕课程报名')">
-      <span class="tag">订单</span><div class="title">法硕课程报名</div><div class="id">A1001</div>
-    </span>
+    <div class="tabs">
+      <button class="tab active" id="tabCourse" onclick="switchTab('course')">课程</button>
+      <button class="tab" id="tabOrder" onclick="switchTab('order')">订单</button>
+    </div>
+    <div class="cards" id="cardContainer"></div>
   </div>
 
   <div class="input-bar">
@@ -136,10 +142,52 @@
     send(undefined, { type, id, title, attributes: {} });
   }
 
+  // 卡片数据：课程（对应 courses 表）+ 订单（对应 orders 表）
+  const CARDS = {
+    course: [
+      { id: 'C001', title: '法学硕士（非法学）全程班', tag: '专硕' },
+      { id: 'C002', title: '法学硕士（法学）全程班', tag: '学硕' },
+      { id: 'C003', title: '民商法方向专项班', tag: '专硕' },
+      { id: 'C004', title: '刑法方向专项班', tag: '专硕' },
+      { id: 'C005', title: '主观题冲刺班', tag: '专硕' },
+    ],
+    order: [
+      { id: 'A1001', title: '法硕专硕春季全程班', tag: '已支付' },
+      { id: 'A1002', title: '法硕专硕秋季全程班', tag: '已支付' },
+      { id: 'A1003', title: '民商法方向专项班', tag: '待支付' },
+      { id: 'A1004', title: '主观题冲刺班', tag: '已退款' },
+    ],
+  };
+
+  let currentTab = 'course';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabCourse').classList.toggle('active', tab === 'course');
+    document.getElementById('tabOrder').classList.toggle('active', tab === 'order');
+    renderCards();
+  }
+
+  function renderCards() {
+    const container = document.getElementById('cardContainer');
+    container.innerHTML = '';
+    CARDS[currentTab].forEach(c => {
+      const card = document.createElement('span');
+      card.className = 'card';
+      card.onclick = () => sendObject(currentTab, c.id, c.title);
+      const tag = currentTab === 'course' ? '课程' : '订单';
+      card.innerHTML = '<span class="tag">' + tag + ' · ' + c.tag + '</span>' +
+        '<div class="title">' + c.title + '</div>' +
+        '<div class="id">' + c.id + '</div>';
+      container.appendChild(card);
+    });
+  }
+
   input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) send(); });
 
   // 开场欢迎语
-  addMsg('bot', '你好，我是「法硕研途」智能客服。你可以问我课程班次、查询订单、了解学习进度，或提交退款/工单。也可以点上面卡片试试对象消息。');
+  addMsg('bot', '你好，我是「法硕研途」智能客服。你可以问我课程班次、查询订单、了解学习进度，或提交退款/工单。点上方卡片可发送课程/订单对象消息（自动填槽）。');
+  renderCards();
   input.focus();
 </script>
 </body>

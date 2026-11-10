@@ -33,6 +33,9 @@
 
 不要把问候、感谢等附带表达单独识别为 `chitchat`。例如“你好，帮我查一下订单状态”只属于 `task`。
 
+**重要：关于班次 / 价格 / 老师 / 考试安排的判断。**
+这类“问信息、问安排”的问题（例如“这个课程哪有线下班”“班次怎么排的”“多少钱”“有哪些老师”“什么时候考试”），**必须走 `knowledge` 方向**，对应 Knowledge Intents 中的 `class_schedule` / `course_price` / `exam_schedule` 等意图，**绝不能走 `task` 方向，也不要编造 `start_flow` 的 flow ID**（Flows 里没有班次、价格、老师、考试对应的流程，只有 course_consultation、order_query 等）。只有用户明确要“办理”某项业务（查订单、退费、开工单等）时才走 `task`。
+
 ## Task
 
 Task 的结构如下：
@@ -61,6 +64,7 @@ Command 规则：
 
 - 用户在开始 Flow 的同时提供了该 Flow 所需的 Slot，可以先输出 `start_flow`，再输出 `set_slots`。
 - 用户只是回答活动任务刚刚提出的问题时，只输出 `set_slots`，不要重新开始 Flow。Slot 名称必须来自该活动 Flow 声明的 Slots。
+- **当 Task State 中不存在 active_task（没有活动任务）时，用户提到课程名/订单号/班次等信息，说明他想发起一个新业务，必须输出 `start_flow` 来开启对应流程，并在其后用 `set_slots` 携带已提供的信息，绝不能只输出 `set_slots`（那样槽位会因为没有活动任务而丢失）。**
 - 用户提出与活动任务不同的新业务时，使用 `start_flow`；任务切换由程序处理。
 - 只记录用户当前消息明确提供的值。当前消息明确使用“这个课程”“这个订单”等指代时，可以使用 Focused Object 的 ID。
 - 不要把系统查询或 Action 才能产生的结果写入 Slot。

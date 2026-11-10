@@ -161,6 +161,9 @@ class FlowExecutor:
         # 订单卡片填充 order_number
         if step.slot_name == "order_number" and focused_object.type == "order":
             state.task_state.set_slots({step.slot_name: focused_object.id})
-        # 课程卡片填充 course_id
-        if step.slot_name == "course_id" and focused_object.type == "course":
-            state.task_state.set_slots({step.slot_name: focused_object.id})
+        # 课程卡片填充 course_id / course_name
+        if focused_object.type == "course" and step.slot_name in ("course_id", "course_name"):
+            if step.slot_name == "course_name":
+                state.task_state.set_slots({step.slot_name: focused_object.title or focused_object.id})
+            else:
+                state.task_state.set_slots({step.slot_name: focused_object.id})
