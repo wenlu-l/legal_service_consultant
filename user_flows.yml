@@ -1,0 +1,420 @@
+# ============================================================
+# 法学研究生考试培训机构 · 智能客服流程配置（user_flows.yml）
+# 说明：参照电商小二 flow_config 格式规范，字段与步骤类型完全对齐。
+#   步骤类型：start / collect（槽位收集）/ action（调用业务动作）/ response（生成回复）/ end
+#   collect 支持 template（mode: static|rephrase）+ validation（条件校验）
+#   response 支持 template（mode: static|rephrase，rephrase 需配 prompt 润色）
+# ============================================================
+
+slots:
+  # —— 学员身份 ——
+  student_id:
+    type: text
+    label: 学员编号
+    description: 学员在系统中的唯一编号，用于关联报名、订单与学习数据
+
+  # —— 课程 / 班次 ——
+  course_id:
+    type: text
+    label: 课程ID
+    description: 当前咨询课程的标识（如法学综合、民商法、刑法等科目课程）
+
+  course_name:
+    type: text
+    label: 课程名称
+    description: 课程名称，如“法学硕士（非法学）全程班”
+
+  class_name:
+    type: text
+    label: 班次名称
+    description: 班次名称，如“民商法方向第5期强化班”
+
+  course_summary:
+    type: text
+    label: 课程摘要
+    description: 课程概述、适用人群、班次与价格等汇总信息
+
+  # —— 订单 ——
+  order_number:
+    type: text
+    label: 订单号
+    description: 学员报名缴费产生的订单号
+
+  order_status:
+    type: text
+    label: 订单状态
+    description: 订单当前状态：待支付/已支付/已取消/已退款
+
+  order_summary:
+    type: text
+    label: 订单摘要
+    description: 订单摘要：报名课程、金额、支付时间等
+
+  # —— 学习进度 ——
+  progress_summary:
+    type: text
+    label: 学习进度摘要
+    description: 考勤、视频、作业、考试等多维度学习数据汇总
+
+  # —— 退款 ——
+  refund_reason:
+    type: text
+    label: 退款原因
+    description: 学员申请退款的原因
+
+  refund_type:
+    type: text
+    label: 退款类型
+    description: 退款类型：全额退款/部分退款
+
+  refund_result:
+    type: text
+    label: 退款处理结果
+    description: 退款申请创建后的处理结果反馈
+
+  # —— 工单 ——
+  ticket_type:
+    type: text
+    label: 工单类型
+    description: 工单类型：售后/投诉/退款
+
+  ticket_number:
+    type: text
+    label: 工单编号
+    description: 创建工单后系统生成的唯一工单编号
+
+  ticket_description:
+    type: text
+    label: 问题描述
+    description: 用户描述的具体问题
+
+  ticket_expectation:
+    type: text
+    label: 处理预期
+    description: 工单创建后系统返回的处理时效预期
+
+
+flows:
+  # ------------------------------------------------------------
+  # 1. 欢迎引导（系统主动触发）
+  # ------------------------------------------------------------
+  onboarding:
+    name: 欢迎引导
+    description: 学员初次打开聊天窗口时欢迎，并介绍助手可提供的法硕培训服务。
+    steps:
+      - id: start
+        type: start
+        next: respond
+
+      - id: respond
+        type: response
+        template:
+          mode: static
+          text: "你好，这里是「法硕研途」智能客服。我可以帮你咨询课程班次、查询订单状态、了解学习进度，也可以协助提交退款申请或售后工单。请问有什么可以帮你？"
+        next: end
+
+      - id: end
+        type: end
+        next: []
+
+  # ------------------------------------------------------------
+  # 2. 课程咨询（信息检索类）
+  # ------------------------------------------------------------
+  course_consultation:
+    name: 课程咨询
+    description: 学员询问课程内容、适用人群、班次安排、价格等，结合课程与班次数据返回回复。
+    steps:
+      - id: start
+        type: start
+        next:
+          - if: "slots.get('course_id') or slots.get('course_name')"
+            then: lookup_course
+          - else: ask_course
+
+      - id: ask_course
+        type: collect
+        slot_name: course_name
+        template:
+          mode: static
+          text: "请问你想了解哪一门课程呢？比如法学综合、民商法、刑法、诉讼法学等方向。"
+        next: lookup_course
+
+      - id: lookup_course
+        type: action
+        action: action_lookup_course
+        next: show_course
+
+      - id: show_course
+        type: response
+        template:
+          mode: rephrase
+          text: "{{ slots.course_summary }}"
+          prompt: |
+            你是「法硕研途」法学考研培训机构的客服助教，亲切、有温度、像陪伴学员备考的学长学姐。用第一人称"我"，口语化，适度用语气词和波浪号（如"哈~""呀"），适度用 emoji（每段 1~2 个），不要机械复述、不要官方腔。
+            请基于下面的基础回复，结合对话上下文生成一句更自然的回复，保持信息完整，不要虚构数据。
+            对话历史：{{ history }}
+            用户最后一句：{{ user_message }}
+            基础回复：{{ current_response }}
+            优化后的回复：
+        next: end
+
+      - id: end
+        type: end
+        next: []
+
+  # ------------------------------------------------------------
+  # 3. 订单查询（任务型对话）
+  # ------------------------------------------------------------
+  order_query:
+    name: 订单查询
+    description: 收集订单号，查询并返回订单状态、支付情况、报名课程信息。
+    steps:
+      - id: start
+        type: start
+        next: ask_order_number
+
+      - id: ask_order_number
+        type: collect
+        slot_name: order_number
+        template:
+          mode: static
+          text: "请告诉我你的订单号，我来帮你查询。"
+        validation:
+          condition: "slots.get('order_number')"
+          failure_template:
+            mode: static
+            text: "订单号不能为空，请重新输入有效的订单号。"
+        next: lookup_order
+
+      - id: lookup_order
+        type: action
+        action: action_lookup_order
+        next: show_order
+
+      - id: show_order
+        type: response
+        template:
+          mode: rephrase
+          text: "订单{{ slots.order_number }}当前状态为{{ slots.order_status }}。{{ slots.order_summary }}"
+          prompt: |
+            你是「法硕研途」法学考研培训机构的客服助教，亲切、有温度、像陪伴学员备考的学长学姐。用第一人称"我"，口语化，适度用语气词和波浪号（如"哈~""呀"），适度用 emoji（每段 1~2 个），不要机械复述、不要官方腔。
+            请基于下面的基础回复，结合对话上下文生成更自然的回复，保持信息完整，不要虚构数据。
+            对话历史：{{ history }}
+            用户最后一句：{{ user_message }}
+            基础回复：{{ current_response }}
+            优化后的回复：
+        next: end
+
+      - id: end
+        type: end
+        next: []
+
+  # ------------------------------------------------------------
+  # 4. 学习进度查询（任务型对话）
+  # ------------------------------------------------------------
+  progress_query:
+    name: 学习进度查询
+    description: 收集班次信息，查询并返回考勤、视频完成、作业提交、考试成绩等学习数据。
+    steps:
+      - id: start
+        type: start
+        next: ask_class
+
+      - id: ask_class
+        type: collect
+        slot_name: class_name
+        template:
+          mode: static
+          text: "请告诉我你的班次名称，比如「民商法方向第5期强化班」。"
+        validation:
+          condition: "slots.get('class_name')"
+          failure_template:
+            mode: static
+            text: "班次名称不能为空，请重新输入。"
+        next: lookup_progress
+
+      - id: lookup_progress
+        type: action
+        action: action_lookup_progress
+        next: show_progress
+
+      - id: show_progress
+        type: response
+        template:
+          mode: rephrase
+          text: "你在{{ slots.class_name }}的学习进度如下：{{ slots.progress_summary }}"
+          prompt: |
+            你是「法硕研途」法学考研培训机构的客服助教，亲切、有温度、像陪伴学员备考的学长学姐。用第一人称"我"，口语化，适度用语气词和波浪号（如"哈~""呀"），适度用 emoji（每段 1~2 个），不要机械复述、不要官方腔。
+            请基于下面的基础回复，结合对话上下文生成更自然的回复，保持信息完整，不要虚构数据。
+            对话历史：{{ history }}
+            用户最后一句：{{ user_message }}
+            基础回复：{{ current_response }}
+            优化后的回复：
+        next: end
+
+      - id: end
+        type: end
+        next: []
+
+  # ------------------------------------------------------------
+  # 5. 退款申请（任务型对话，多轮收集）
+  # ------------------------------------------------------------
+  refund_request:
+    name: 退款申请
+    description: 收集订单号、退款原因、退款类型，创建退款申请并返回处理结果。
+    steps:
+      - id: start
+        type: start
+        next: ask_order_number
+
+      - id: ask_order_number
+        type: collect
+        slot_name: order_number
+        template:
+          mode: static
+          text: "好的，我来帮你申请退款。请先告诉我你的订单号。"
+        validation:
+          condition: "slots.get('order_number')"
+          failure_template:
+            mode: static
+            text: "订单号不能为空，请重新输入。"
+        next: ask_refund_reason
+
+      - id: ask_refund_reason
+        type: collect
+        slot_name: refund_reason
+        template:
+          mode: static
+          text: "请简单说一下退款原因，方便我们更快处理。"
+        validation:
+          condition: "slots.get('refund_reason')"
+          failure_template:
+            mode: static
+            text: "退款原因不能为空，请简单描述一下。"
+        next: ask_refund_type
+
+      - id: ask_refund_type
+        type: collect
+        slot_name: refund_type
+        template:
+          mode: static
+          text: "请问你是申请全额退款还是部分退款？"
+        validation:
+          condition: "slots.get('refund_type')"
+          failure_template:
+            mode: static
+            text: "请选择退款类型：全额退款或部分退款。"
+        next: submit_refund
+
+      - id: submit_refund
+        type: action
+        action: action_submit_refund
+        next: show_refund_result
+
+      - id: show_refund_result
+        type: response
+        template:
+          mode: rephrase
+          text: "好的，订单{{ slots.order_number }}的退款申请已提交。{{ slots.refund_result }}"
+          prompt: |
+            你是「法硕研途」法学考研培训机构的客服助教，亲切、有温度、像陪伴学员备考的学长学姐。用第一人称"我"，口语化，适度用语气词和波浪号（如"哈~""呀"），适度用 emoji（每段 1~2 个），不要机械复述、不要官方腔。
+            请基于下面的基础回复，结合对话上下文生成更自然的回复，保持信息完整，不要虚构数据。
+            对话历史：{{ history }}
+            用户最后一句：{{ user_message }}
+            基础回复：{{ current_response }}
+            优化后的回复：
+        next: end
+
+      - id: end
+        type: end
+        next: []
+
+  # ------------------------------------------------------------
+  # 6. 工单提交（任务型对话，多轮收集）
+  # ------------------------------------------------------------
+  ticket_submission:
+    name: 工单提交
+    description: 收集工单类型、关联订单号、问题描述，创建工单并返回工单编号与处理预期。
+    steps:
+      - id: start
+        type: start
+        next: ask_ticket_type
+
+      - id: ask_ticket_type
+        type: collect
+        slot_name: ticket_type
+        template:
+          mode: static
+          text: "请问你遇到的是哪类问题？可以选择：售后、投诉、退款。"
+        validation:
+          condition: "slots.get('ticket_type')"
+          failure_template:
+            mode: static
+            text: "请选择工单类型：售后、投诉或退款。"
+        next: ask_order_number
+
+      - id: ask_order_number
+        type: collect
+        slot_name: order_number
+        template:
+          mode: static
+          text: "请提供关联的订单号（如果没有订单可以回复「无」）。"
+        next: ask_description
+
+      - id: ask_description
+        type: collect
+        slot_name: ticket_description
+        template:
+          mode: static
+          text: "请具体描述一下你遇到的问题，方便我们准确处理。"
+        validation:
+          condition: "slots.get('ticket_description')"
+          failure_template:
+            mode: static
+            text: "问题描述不能为空，请具体说明。"
+        next: submit_ticket
+
+      - id: submit_ticket
+        type: action
+        action: action_submit_ticket
+        next: show_ticket_result
+
+      - id: show_ticket_result
+        type: response
+        template:
+          mode: rephrase
+          text: "工单已创建，编号为{{ slots.ticket_number }}。{{ slots.ticket_expectation }}"
+          prompt: |
+            你是「法硕研途」法学考研培训机构的客服助教，亲切、有温度、像陪伴学员备考的学长学姐。用第一人称"我"，口语化，适度用语气词和波浪号（如"哈~""呀"），适度用 emoji（每段 1~2 个），不要机械复述、不要官方腔。
+            请基于下面的基础回复，结合对话上下文生成更自然的回复，保持信息完整，不要虚构数据。
+            对话历史：{{ history }}
+            用户最后一句：{{ user_message }}
+            基础回复：{{ current_response }}
+            优化后的回复：
+        next: end
+
+      - id: end
+        type: end
+        next: []
+
+  # ------------------------------------------------------------
+  # 7. 人工客服转接
+  # ------------------------------------------------------------
+  human_handoff:
+    name: 人工客服
+    description: 将当前对话转交给人工客服处理，用于复杂售后、投诉跟进的兜底场景。
+    steps:
+      - id: start
+        type: start
+        next: respond
+
+      - id: respond
+        type: response
+        template:
+          mode: static
+          text: "好的，我来为你转接人工客服，请稍等。工作时间（9:00-21:00）内会有老师尽快回复你。"
+        next: end
+
+      - id: end
+        type: end
+        next: []
