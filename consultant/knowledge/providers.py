@@ -20,7 +20,7 @@ from sqlalchemy import select
 
 from consultant.clients import database
 from consultant.domain.knowledge import KnowledgeChunk
-from consultant.domain.messages import UserMessage
+from consultant.domain.messages import UserMessage, MessageObject
 from consultant.domain.state import DialogueState
 from consultant.models.business import (
     Course, Teacher, ClassSchedule, CoursePrice, OfflineLocation, ExamSchedule,
@@ -157,7 +157,6 @@ class CourseScheduleProvider(KnowledgeProvider):
 class CoursePriceProvider(KnowledgeProvider):
     """查询专硕/学硕 × 线上/线下 价格"""
     provider_id = "api.price"
-
     async def retrieve(self, state: DialogueState, user_message: UserMessage) -> list[KnowledgeChunk]:
         async with database.session_factory() as session:
             rows = (await session.execute(
@@ -279,6 +278,41 @@ class RAGProvider(KnowledgeProvider):
         )]
 
 
+class CourseRecommendProvider(KnowledgeProvider):
+    """课程推荐：从 courses 表推荐课程，返回带卡片对象的回复。
+
+    用户表达"帮我推荐课程 / 不知道该选哪个"等意图时，推荐招生中的课程，
+    返回一个 KnowledgeChunk：content 为推荐理由文字，object 为课程卡片，
+    由响应器渲染成「文字 + 卡片」的富消息回复。
+    """
+    provider_id = "api.recommend"
+
+    async def retrieve(self, state: DialogueState, user_message: UserMessage) -> list[KnowledgeChunk]:
+        async with database.session_factory() as session:
+            rows = (await session.execute(
+                select(Course).order_by(Course.id)
+            )).scalars().all()
+
+        if not rows:
+            return [KnowledgeChunk(content="目前暂时没有可推荐的课程，你可以稍后再来，或回复「转人工」咨询老师。")]
+
+        # 取第一门作为推荐课程（这里简单取排序后的第一门，后续可接入个性化推荐）
+        course = rows[0]
+        # 组装课程卡片对象
+        card = MessageObject(
+            type="course",
+            id=course.id,
+            title=course.name,
+            attributes={"category": course.category, "subject": course.subject},
+        )
+        recommend_text = (
+            f"为你推荐「{course.name}」：属于{course.category}·{course.subject}方向，"
+            f"适合{course.suitable_for or '法硕备考学员'}。{course.description or ''}"
+            "你可以点击下方卡片直接了解这门课程，也可以告诉我想了解班次或价格。"
+        )
+        return [KnowledgeChunk(content=recommend_text, object=card)]
+
+
 def build_default_providers() -> list[KnowledgeProvider]:
     """返回系统支持的信息提供者实例列表"""
     providers: list[KnowledgeProvider] = [
@@ -288,6 +322,7 @@ def build_default_providers() -> list[KnowledgeProvider]:
         CoursePriceProvider(),
         TeacherProvider(),
         ExamProvider(),
+        CourseRecommendProvider(),
     ]
     for faq_id in FAQ_DB:
         p = FAQProvider()

@@ -91,16 +91,20 @@
   function addMsg(role, text, object) {
     const div = document.createElement('div');
     div.className = 'msg ' + role;
+    div.innerHTML = '';
+    if (text) {
+      const p = document.createElement('div');
+      p.textContent = text;
+      div.appendChild(p);
+    }
     if (object) {
-      div.innerHTML = '';
       const card = document.createElement('span');
       card.className = 'card';
+      card.onclick = () => sendObject(object.type, object.id, object.title);
       card.innerHTML = '<span class="tag">' + (object.type === 'course' ? '课程' : '订单') + '</span>' +
         '<div class="title">' + (object.title || object.id) + '</div>' +
         '<div class="id">' + object.id + '</div>';
       div.appendChild(card);
-    } else if (text) {
-      div.textContent = text;
     }
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;

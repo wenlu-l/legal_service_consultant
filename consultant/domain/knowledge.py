@@ -5,12 +5,14 @@
 （provider_ids），由知识处理器（KnowledgeHandler）并发调用这些提供者检索内容。
 """
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
 class KnowledgeChunk:
     """信息检索后得到的内容片段"""
     content: str
+    object: Any | None = None  # 可选的卡片对象（如课程推荐卡片），供回复时附带富消息
 
 
 @dataclass
@@ -47,6 +49,11 @@ KNOWLEDGE_INTENTS: dict[str, KnowledgeIntent] = {
         id="course_price",
         description="课程价格咨询（专硕/学硕、线上/线下价位）",
         provider_ids=["api.price"],
+    ),
+    "course_recommend": KnowledgeIntent(
+        id="course_recommend",
+        description="课程推荐（用户想让客服推荐课程、不知道选什么时）",
+        provider_ids=["api.recommend"],
     ),
     "exam_schedule": KnowledgeIntent(
         id="exam_schedule",

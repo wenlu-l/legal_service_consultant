@@ -28,4 +28,10 @@ class KnowledgeResponder:
             "user_message": HistoryBuilder.render_user_message(user_message),
             "knowledge_content": knowledge_content,
         })
-        return BotMessage(text=result)
+        # 3. 若检索片段携带卡片对象（如课程推荐卡片），随回复一并返回
+        card_object = None
+        for chunk in chunks:
+            if chunk.object is not None:
+                card_object = chunk.object
+                break
+        return BotMessage(text=result, object=card_object)
